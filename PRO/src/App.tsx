@@ -706,7 +706,7 @@ function App() {
   };
 
   return (
-    <Router>
+    <Router basename="/">
       <Routes>
         <Route 
           path="/login" 
@@ -730,6 +730,7 @@ function App() {
             )
           }
         />
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Router>
   );
