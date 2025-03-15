@@ -6,7 +6,8 @@ import {
   MapPin, 
   User, 
   LogOut,
-  Save
+  Save,
+  X
 } from 'lucide-react';
 import type { UserPreferences } from '../types';
 
@@ -14,21 +15,38 @@ interface SettingsProps {
   onClose: () => void;
 }
 
-export const Settings: React.FC<SettingsProps> = ({ onClose }) => {
-  const [preferences, setPreferences] = useState<UserPreferences>({
-    darkMode: true,
-    notifications: {
-      matches: true,
-      messages: true,
-      profileViews: false
-    },
-    visibility: true,
-    maxDistance: 50,
-    ageRange: {
-      min: 18,
-      max: 25
-    }
+interface Preferences {
+  ageRange: { min: number; max: number };
+  showProfile: boolean;
+  allowMessages: boolean;
+}
+
+export function Settings({ onClose }: SettingsProps) {
+  const [preferences, setPreferences] = useState<Preferences>({
+    ageRange: { min: 18, max: 30 },
+    showProfile: true,
+    allowMessages: true
   });
+
+  const handleMinAgeChange = (value: number) => {
+    setPreferences(prev => ({
+      ...prev,
+      ageRange: {
+        ...prev.ageRange,
+        min: value
+      }
+    }));
+  };
+
+  const handleMaxAgeChange = (value: number) => {
+    setPreferences(prev => ({
+      ...prev,
+      ageRange: {
+        ...prev.ageRange,
+        max: value
+      }
+    }));
+  };
 
   const handleSave = () => {
     // TODO: Implement save functionality with backend
@@ -116,10 +134,10 @@ export const Settings: React.FC<SettingsProps> = ({ onClose }) => {
             <label className="relative inline-flex items-center cursor-pointer">
               <input
                 type="checkbox"
-                checked={preferences.visibility}
+                checked={preferences.showProfile}
                 onChange={(e) => setPreferences({
                   ...preferences,
-                  visibility: e.target.checked
+                  showProfile: e.target.checked
                 })}
                 className="sr-only peer"
               />
@@ -168,13 +186,7 @@ export const Settings: React.FC<SettingsProps> = ({ onClose }) => {
               min="18"
               max="100"
               value={preferences.ageRange.min}
-              onChange={(e) => setPreferences({
-                ...preferences,
-                ageRange: {
-                  ...preferences.ageRange,
-                  min: parseInt(e.target.value)
-                }
-              })}
+              onChange={(e) => handleMinAgeChange(parseInt(e.target.value))}
               className="w-full bg-[#1E1E1E] rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-[#6200EE]"
             />
           </div>
@@ -185,13 +197,7 @@ export const Settings: React.FC<SettingsProps> = ({ onClose }) => {
               min="18"
               max="100"
               value={preferences.ageRange.max}
-              onChange={(e) => setPreferences({
-                ...preferences,
-                ageRange: {
-                  ...preferences.ageRange,
-                  max: parseInt(e.target.value)
-                }
-              })}
+              onChange={(e) => handleMaxAgeChange(parseInt(e.target.value))}
               className="w-full bg-[#1E1E1E] rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-[#6200EE]"
             />
           </div>
@@ -216,4 +222,4 @@ export const Settings: React.FC<SettingsProps> = ({ onClose }) => {
       </div>
     </div>
   );
-}; 
+} 

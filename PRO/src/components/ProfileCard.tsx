@@ -53,6 +53,10 @@ export const ProfileCard: React.FC<ProfileCardProps> = ({ profile, onSwipe }) =>
     });
   };
 
+  const handlePhotoUpload = async () => {
+    // Photo upload logic here
+  };
+
   return (
     <motion.div
       drag="x"
