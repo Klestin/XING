@@ -9,7 +9,6 @@ import {
   Save,
   X
 } from 'lucide-react';
-import type { UserPreferences } from '../types';
 
 interface SettingsProps {
   onClose: () => void;
@@ -19,13 +18,29 @@ interface Preferences {
   ageRange: { min: number; max: number };
   showProfile: boolean;
   allowMessages: boolean;
+  visibility: boolean;
+  maxDistance: number;
+  notifications: {
+    matches: boolean;
+    messages: boolean;
+    profileViews: boolean;
+  };
+  darkMode: boolean;
 }
 
 export function Settings({ onClose }: SettingsProps) {
   const [preferences, setPreferences] = useState<Preferences>({
     ageRange: { min: 18, max: 30 },
     showProfile: true,
-    allowMessages: true
+    allowMessages: true,
+    visibility: true,
+    maxDistance: 50,
+    notifications: {
+      matches: true,
+      messages: true,
+      profileViews: true
+    },
+    darkMode: false
   });
 
   const handleMinAgeChange = (value: number) => {

@@ -13,6 +13,8 @@ export function ProfileForm({ onClose, onSubmit }: ProfileFormProps) {
   const [error, setError] = useState<string | null>(null);
   const [userEmail, setUserEmail] = useState<string>('');
   const [profile, setProfile] = useState<StudentProfile>({
+    email: '',
+    password: '',
     name: '',
     student_id: '',
     department: '',
@@ -21,6 +23,8 @@ export function ProfileForm({ onClose, onSubmit }: ProfileFormProps) {
     bio: '',
     photos: [],
     instagram_id: '',
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString()
   });
   const [uploading, setUploading] = useState(false);
 
