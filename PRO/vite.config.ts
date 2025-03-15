@@ -12,8 +12,21 @@ export default defineConfig({
   },
   server: {
     port: 3000,
+    host: true
   },
   optimizeDeps: {
     include: ['@supabase/supabase-js'],
+  },
+  build: {
+    outDir: 'dist',
+    sourcemap: true,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'react-vendor': ['react', 'react-dom'],
+          'supabase-vendor': ['@supabase/supabase-js']
+        }
+      }
+    }
   },
 });
