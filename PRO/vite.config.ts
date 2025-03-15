@@ -10,17 +10,16 @@ export default defineConfig({
       '@': path.resolve(__dirname, './src'),
     },
   },
-  base: '/',
+  base: './',
   server: {
     port: 3000,
     host: true
   },
-  optimizeDeps: {
-    include: ['@supabase/supabase-js'],
-  },
   build: {
     outDir: 'dist',
     sourcemap: true,
+    assetsDir: 'assets',
+    emptyOutDir: true,
     rollupOptions: {
       output: {
         manualChunks: {
@@ -30,4 +29,7 @@ export default defineConfig({
       }
     }
   },
+  optimizeDeps: {
+    include: ['@supabase/supabase-js']
+  }
 });
