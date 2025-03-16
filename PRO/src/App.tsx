@@ -351,6 +351,39 @@ function MainApp() {
     fetchStudentProfiles();
   }, []);
 
+  // Add new useEffect to fetch user's profile data
+  useEffect(() => {
+    const fetchUserProfile = async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+
+        const { data: profile, error } = await supabase
+          .from('student_profiles')
+          .select('*')
+          .eq('id', user.id)
+          .single();
+
+        if (error) throw error;
+
+        if (profile) {
+          setProfileData({
+            name: profile.name || 'Your Name',
+            department: profile.department || 'Computer Science',
+            year: profile.year || 1,
+            bio: profile.bio || '',
+            interests: profile.interests?.join(', ') || '',
+            photo: profile.photos?.[0] || 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400'
+          });
+        }
+      } catch (err) {
+        console.error('Error fetching user profile:', err);
+      }
+    };
+
+    fetchUserProfile();
+  }, []);
+
   // Helper function to calculate age from created_at
   const calculateAge = (created_at?: string) => {
     if (!created_at) return 20; // Default age
@@ -380,10 +413,37 @@ function MainApp() {
     window.location.href = '/login';
   };
 
-  const handleProfileSave = () => {
-    // Here you would typically save to your backend
-    setShowSuccessMessage(true);
-    setTimeout(() => setShowSuccessMessage(false), 3000);
+  const handleProfileSave = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('No user found');
+
+      // Convert interests string to array
+      const interestsArray = profileData.interests
+        .split(',')
+        .map(interest => interest.trim())
+        .filter(interest => interest.length > 0);
+
+      const { error: updateError } = await supabase
+        .from('student_profiles')
+        .update({
+          name: profileData.name,
+          department: profileData.department,
+          year: profileData.year,
+          bio: profileData.bio,
+          interests: interestsArray,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', user.id);
+
+      if (updateError) throw updateError;
+
+      setShowSuccessMessage(true);
+      setTimeout(() => setShowSuccessMessage(false), 3000);
+    } catch (err) {
+      console.error('Error saving profile:', err);
+      setError(err instanceof Error ? err.message : 'Error saving profile');
+    }
   };
 
   const handleSettingsSave = () => {
@@ -400,26 +460,53 @@ function MainApp() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('No user found');
 
+      // Show loading state
+      setShowSuccessMessage(false);
+      const loadingMessage = document.createElement('div');
+      loadingMessage.className = 'fixed bottom-4 right-4 bg-blue-500 text-white px-6 py-3 rounded-lg shadow-lg z-50';
+      loadingMessage.textContent = 'Uploading photo...';
+      document.body.appendChild(loadingMessage);
+
       const fileExt = file.name.split('.').pop();
       const fileName = `${user.id}-${Math.random()}.${fileExt}`;
       const filePath = `${fileName}`;
 
+      // Upload photo to storage
       const { error: uploadError } = await supabase.storage
         .from('profile-photos')
         .upload(filePath, file);
 
       if (uploadError) throw uploadError;
 
+      // Get public URL
       const { data: { publicUrl } } = supabase.storage
         .from('profile-photos')
         .getPublicUrl(filePath);
 
+      // Update profile in database
+      const { error: updateError } = await supabase
+        .from('student_profiles')
+        .update({
+          photos: [publicUrl],
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', user.id);
+
+      if (updateError) throw updateError;
+
+      // Update local state
       setProfileData(prev => ({
         ...prev,
         photo: publicUrl
       }));
+
+      // Remove loading message and show success
+      document.body.removeChild(loadingMessage);
+      setShowSuccessMessage(true);
+      setTimeout(() => setShowSuccessMessage(false), 3000);
     } catch (err) {
       console.error('Error uploading photo:', err);
+      setError(err instanceof Error ? err.message : 'Error uploading photo');
     }
   };
 
