@@ -3,7 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { supabase } from './lib/supabase';
 import { Login } from './components/Login';
 import { ProtectedRoute } from './components/ProtectedRoute';
-import { Heart, X, User, Settings as SettingsIcon, LogOut } from 'lucide-react';
+import { Heart, X, User, Settings as SettingsIcon, LogOut, Camera } from 'lucide-react';
 import type { StudentProfile } from './types';
 
 // Mock data for student profiles
@@ -392,6 +392,37 @@ function MainApp() {
     setTimeout(() => setShowSuccessMessage(false), 3000);
   };
 
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('No user found');
+
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${user.id}-${Math.random()}.${fileExt}`;
+      const filePath = `${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('profile-photos')
+        .upload(filePath, file);
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('profile-photos')
+        .getPublicUrl(filePath);
+
+      setProfileData(prev => ({
+        ...prev,
+        photo: publicUrl
+      }));
+    } catch (err) {
+      console.error('Error uploading photo:', err);
+    }
+  };
+
   const renderContent = () => {
     switch (currentView) {
       case 'discover':
@@ -487,11 +518,22 @@ function MainApp() {
             <h2 className="text-xl md:text-2xl font-bold text-white mb-6">Your Profile</h2>
             <div className="bg-[#1E1E1E] rounded-lg p-4 md:p-6">
               <div className="flex flex-col md:flex-row items-center gap-4 mb-6">
-                <img
-                  src={profileData.photo}
-                  alt="Your Profile"
-                  className="w-24 h-24 rounded-full object-cover"
-                />
+                <div className="relative group">
+                  <img
+                    src={profileData.photo}
+                    alt="Your Profile"
+                    className="w-24 h-24 rounded-full object-cover"
+                  />
+                  <label className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-full opacity-0 group-hover:opacity-100 cursor-pointer transition-opacity">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handlePhotoUpload}
+                      className="hidden"
+                    />
+                    <Camera className="text-white" size={20} />
+                  </label>
+                </div>
                 <div className="w-full md:w-auto">
                   <input
                     type="text"
