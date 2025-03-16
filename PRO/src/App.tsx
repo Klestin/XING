@@ -1,8 +1,10 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { supabase } from './lib/supabase';
 import { Login } from './components/Login';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { Heart, X, User, Settings as SettingsIcon, LogOut } from 'lucide-react';
+import type { StudentProfile } from './types';
 
 // Mock data for student profiles
 const mockProfiles = [
@@ -291,6 +293,9 @@ function MainApp() {
   const [currentView, setCurrentView] = useState<'discover' | 'matches' | 'profile' | 'settings'>('discover');
   const [selectedMatch, setSelectedMatch] = useState<any>(null);
   const [showChat, setShowChat] = useState(false);
+  const [allProfiles, setAllProfiles] = useState<any[]>(mockProfiles);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [profileData, setProfileData] = useState({
     name: 'Your Name',
     department: 'Computer Science',
@@ -307,9 +312,58 @@ function MainApp() {
   });
   const [showSuccessMessage, setShowSuccessMessage] = useState(false);
 
+  // Fetch real student profiles on component mount
+  useEffect(() => {
+    const fetchStudentProfiles = async () => {
+      try {
+        const { data: studentProfiles, error } = await supabase
+          .from('student_profiles')
+          .select('*');
+
+        if (error) throw error;
+
+        // Convert StudentProfile to Profile format
+        const formattedProfiles = studentProfiles.map((profile: StudentProfile) => ({
+          id: profile.id || String(Math.random()),
+          name: profile.name,
+          age: calculateAge(profile.created_at), // You might want to add an age field to StudentProfile
+          state: 'Student',
+          interests: profile.bio.split(',').map(i => i.trim()), // You might want to add an interests field
+          hobbies: [],
+          cgpa: profile.cgpa,
+          bio: profile.bio,
+          photos: profile.photos,
+          instagramId: profile.instagram_id,
+          department: profile.department,
+          year: profile.year
+        }));
+
+        // Combine mock and real profiles
+        setAllProfiles([...formattedProfiles, ...mockProfiles]);
+      } catch (err) {
+        console.error('Error fetching profiles:', err);
+        setError(err instanceof Error ? err.message : 'Failed to fetch profiles');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchStudentProfiles();
+  }, []);
+
+  // Helper function to calculate age from created_at
+  const calculateAge = (created_at?: string) => {
+    if (!created_at) return 20; // Default age
+    const years = Math.floor(
+      (new Date().getTime() - new Date(created_at).getTime()) / 
+      (1000 * 60 * 60 * 24 * 365)
+    );
+    return 18 + years; // Assuming minimum age is 18
+  };
+
   const handleSwipe = (direction: 'left' | 'right') => {
     if (direction === 'right') {
-      const newMatch = mockProfiles[currentProfileIndex];
+      const newMatch = allProfiles[currentProfileIndex];
       setMatches([...matches, newMatch]);
       setMatchedProfile(newMatch);
       setShowMatchAnimation(true);
@@ -317,7 +371,7 @@ function MainApp() {
     }
     
     setCurrentProfileIndex((prev) => 
-      prev < mockProfiles.length - 1 ? prev + 1 : 0
+      prev < allProfiles.length - 1 ? prev + 1 : 0
     );
   };
 
@@ -343,24 +397,28 @@ function MainApp() {
       case 'discover':
         return (
           <div className="flex-1 flex items-center justify-center p-4 md:p-6">
-            {mockProfiles[currentProfileIndex] && (
+            {loading ? (
+              <div className="text-white">Loading profiles...</div>
+            ) : error ? (
+              <div className="text-red-500">{error}</div>
+            ) : allProfiles[currentProfileIndex] ? (
               <div className="bg-[#2D2D2D] rounded-xl p-4 md:p-6 w-full max-w-md">
                 <img
-                  src={mockProfiles[currentProfileIndex].photo}
-                  alt={mockProfiles[currentProfileIndex].name}
+                  src={allProfiles[currentProfileIndex].photos?.[0] || allProfiles[currentProfileIndex].photo}
+                  alt={allProfiles[currentProfileIndex].name}
                   className="w-full h-64 md:h-96 object-cover rounded-lg mb-4"
                 />
                 <h2 className="text-xl md:text-2xl font-bold text-white mb-2">
-                  {mockProfiles[currentProfileIndex].name}, {mockProfiles[currentProfileIndex].age}
+                  {allProfiles[currentProfileIndex].name}, {allProfiles[currentProfileIndex].age}
                 </h2>
                 <p className="text-white/60 mb-2">
-                  {mockProfiles[currentProfileIndex].department} • Year {mockProfiles[currentProfileIndex].year}
+                  {allProfiles[currentProfileIndex].department} • Year {allProfiles[currentProfileIndex].year}
                 </p>
                 <p className="text-white/60 mb-4">
-                  CGPA: {mockProfiles[currentProfileIndex].cgpa}
+                  CGPA: {allProfiles[currentProfileIndex].cgpa}
                 </p>
                 <div className="flex flex-wrap gap-2 mb-4">
-                  {mockProfiles[currentProfileIndex].interests.map((interest, index) => (
+                  {allProfiles[currentProfileIndex].interests.map((interest: string, index: number) => (
                     <span
                       key={index}
                       className="bg-[#6200EE] text-white px-3 py-1 rounded-full text-sm"
@@ -370,24 +428,24 @@ function MainApp() {
                   ))}
                 </div>
                 <p className="text-white/80 mb-6">
-                  {mockProfiles[currentProfileIndex].bio}
+                  {allProfiles[currentProfileIndex].bio}
                 </p>
                 <div className="flex justify-center gap-4">
                   <button
                     onClick={() => handleSwipe('left')}
-                    className="p-4 bg-red-500 text-white rounded-full hover:bg-red-600 transition-colors"
+                    className="p-4 bg-red-500 rounded-full hover:bg-opacity-80 transition-colors"
                   >
-                    <X size={24} />
+                    <X className="text-white" size={24} />
                   </button>
                   <button
                     onClick={() => handleSwipe('right')}
-                    className="p-4 bg-green-500 text-white rounded-full hover:bg-green-600 transition-colors"
+                    className="p-4 bg-green-500 rounded-full hover:bg-opacity-80 transition-colors"
                   >
-                    <Heart size={24} />
+                    <Heart className="text-white" size={24} />
                   </button>
                 </div>
               </div>
-            )}
+            ) : null}
           </div>
         );
       case 'matches':
