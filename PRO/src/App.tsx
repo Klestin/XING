@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { supabase } from './lib/supabase';
 import { Login } from './components/Login';
@@ -311,6 +311,11 @@ function MainApp() {
     allowMessages: true
   });
   const [showSuccessMessage, setShowSuccessMessage] = useState(false);
+  const [messages, setMessages] = useState<any[]>([]);
+  const [newMessage, setNewMessage] = useState('');
+  const chatEndRef = useRef<HTMLDivElement>(null);
+  const [isSending, setIsSending] = useState(false);
+  const [currentUser, setCurrentUser] = useState<any>(null);
 
   // Fetch real student profiles on component mount
   useEffect(() => {
@@ -383,6 +388,106 @@ function MainApp() {
 
     fetchUserProfile();
   }, []);
+
+  // Add effect to fetch current user
+  useEffect(() => {
+    const fetchCurrentUser = async () => {
+      const { data: authData } = await supabase.auth.getUser();
+      setCurrentUser(authData?.user || null);
+    };
+
+    fetchCurrentUser();
+  }, []);
+
+  // Add subscription for real-time chat updates
+  useEffect(() => {
+    if (!selectedMatch) return;
+
+    const fetchUserAndMessages = async () => {
+      const { data: authData } = await supabase.auth.getUser();
+      if (!authData.user) return;
+
+      // Fetch existing messages
+      const { data: messages, error } = await supabase
+        .from('messages')
+        .select('*')
+        .or(`sender_id.eq.${authData.user.id},receiver_id.eq.${authData.user.id}`)
+        .order('created_at', { ascending: true });
+
+      if (error) {
+        console.error('Error fetching messages:', error);
+        return;
+      }
+
+      setMessages(messages || []);
+      scrollToBottom();
+
+      // Subscribe to new messages
+      const subscription = supabase
+        .channel('messages')
+        .on(
+          'postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'messages',
+            filter: `sender_id=eq.${authData.user.id},receiver_id=eq.${selectedMatch.id}`
+          },
+          (payload) => {
+            setMessages(prev => [...prev, payload.new]);
+            scrollToBottom();
+          }
+        )
+        .subscribe();
+
+      return subscription;
+    };
+
+    const setupSubscription = async () => {
+      const subscription = await fetchUserAndMessages();
+      return () => {
+        subscription?.unsubscribe();
+      };
+    };
+
+    setupSubscription();
+  }, [selectedMatch]);
+
+  const scrollToBottom = () => {
+    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  const handleSendMessage = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newMessage.trim() || !selectedMatch) return;
+
+    setIsSending(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('No user found');
+
+      const message = {
+        sender_id: user.id,
+        receiver_id: selectedMatch.id,
+        content: newMessage.trim(),
+        created_at: new Date().toISOString()
+      };
+
+      const { error } = await supabase
+        .from('messages')
+        .insert([message]);
+
+      if (error) throw error;
+
+      setNewMessage('');
+      scrollToBottom();
+    } catch (err) {
+      console.error('Error sending message:', err);
+      setError(err instanceof Error ? err.message : 'Error sending message');
+    } finally {
+      setIsSending(false);
+    }
+  };
 
   // Helper function to calculate age from created_at
   const calculateAge = (created_at?: string) => {
@@ -836,30 +941,68 @@ function MainApp() {
                 </div>
               </div>
               <button
-                onClick={() => setShowChat(false)}
+                onClick={() => {
+                  setShowChat(false);
+                  setMessages([]);
+                  setNewMessage('');
+                }}
                 className="text-white/60 hover:text-white"
               >
                 <X size={20} />
               </button>
             </div>
             <div className="flex-1 p-4 overflow-y-auto">
-              {/* Chat messages would go here */}
-              <div className="text-center text-white/40">
-                Start a conversation with {selectedMatch.name}
-              </div>
+              {messages.length === 0 ? (
+                <div className="text-center text-white/40">
+                  Start a conversation with {selectedMatch.name}
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {messages.map((message) => {
+                    const isSender = message.sender_id === currentUser?.id;
+                    return (
+                      <div
+                        key={message.id}
+                        className={`flex ${isSender ? 'justify-end' : 'justify-start'}`}
+                      >
+                        <div
+                          className={`max-w-[70%] rounded-lg px-4 py-2 ${
+                            isSender
+                              ? 'bg-[#6200EE] text-white'
+                              : 'bg-[#1E1E1E] text-white/90'
+                          }`}
+                        >
+                          <p>{message.content}</p>
+                          <p className="text-xs opacity-60 mt-1">
+                            {new Date(message.created_at).toLocaleTimeString()}
+                          </p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                  <div ref={chatEndRef} />
+                </div>
+              )}
             </div>
-            <div className="p-4 border-t border-white/10">
+            <form onSubmit={handleSendMessage} className="p-4 border-t border-white/10">
               <div className="flex gap-2">
                 <input
                   type="text"
+                  value={newMessage}
+                  onChange={(e) => setNewMessage(e.target.value)}
                   placeholder="Type a message..."
                   className="flex-1 bg-[#1E1E1E] text-white rounded-lg px-4 py-2"
+                  disabled={isSending}
                 />
-                <button className="bg-[#6200EE] text-white px-6 py-2 rounded-lg hover:bg-[#7C4DFF] transition-colors">
-                  Send
+                <button
+                  type="submit"
+                  disabled={isSending || !newMessage.trim()}
+                  className="bg-[#6200EE] text-white px-6 py-2 rounded-lg hover:bg-[#7C4DFF] transition-colors disabled:opacity-50"
+                >
+                  {isSending ? 'Sending...' : 'Send'}
                 </button>
               </div>
-            </div>
+            </form>
           </div>
         </div>
       )}
