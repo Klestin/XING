@@ -302,7 +302,8 @@ function MainApp() {
     year: 3,
     bio: '',
     interests: '',
-    photo: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400'
+    photo: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400',
+    cgpa: 0.0
   });
   const [settingsData, setSettingsData] = useState({
     email: '',
@@ -378,7 +379,8 @@ function MainApp() {
             year: profile.year || 1,
             bio: profile.bio || '',
             interests: profile.interests?.join(', ') || '',
-            photo: profile.photos?.[0] || 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400'
+            photo: profile.photos?.[0] || 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400',
+            cgpa: profile.cgpa || 0.0
           });
         }
       } catch (err) {
@@ -537,6 +539,7 @@ function MainApp() {
           year: profileData.year,
           bio: profileData.bio,
           interests: interestsArray,
+          cgpa: profileData.cgpa,
           updated_at: new Date().toISOString()
         })
         .eq('id', user.id);
@@ -751,6 +754,19 @@ function MainApp() {
                 </div>
               </div>
               <div className="space-y-4">
+                <div>
+                  <label className="text-white/60 block mb-2">CGPA</label>
+                  <input
+                    type="number"
+                    value={profileData.cgpa}
+                    onChange={(e) => setProfileData({ ...profileData, cgpa: parseFloat(e.target.value) })}
+                    className="w-full bg-[#2A2A2A] text-white rounded-lg p-3"
+                    step="0.01"
+                    min="0"
+                    max="4"
+                    placeholder="Enter your CGPA (0-4)"
+                  />
+                </div>
                 <div>
                   <label className="text-white/60 block mb-2">Bio</label>
                   <textarea
